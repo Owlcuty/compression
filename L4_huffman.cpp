@@ -7,9 +7,12 @@
 #include <string.h>
 #include <vector>
 #include <chrono>
+#include <cmath>
 
 #define TEST_MAIN
-// #define PROFILE_FUNCS
+#define PROFILE_FUNCS
+// #define MEASURE
+
 
 struct Node
 {
@@ -34,7 +37,7 @@ struct Node
         return *this;
     }
     bool leaf = false;
-    char value = 0;
+    std::string value;
     int probability;
     struct Node* left = nullptr;
     struct Node* right = nullptr;
@@ -70,6 +73,10 @@ public:
         build_bin_tree();
         build_code(_root, "");
         std::cout << "Build code ended\n";
+#ifdef MEASURE
+        double code_efficiency = calc_code_efficiency();
+        std::cout << "Code efficiency = " << code_efficiency << std::endl;
+#endif
 
         // std::cout << "Code:\n";
         // for (auto it = _code.begin(); it != _code.end(); it++)
@@ -83,16 +90,16 @@ public:
         delete_tree(_root);
     }
 
-    std::string get_code(char symbol)
+    std::string get_code(const std::string& value)
     {
-        return _code[symbol];
+        return _code[value];
     }
-    int get_symbol(const char* str, size_t& offset, int& bit, size_t num_bits, char& symbol)
+    int get_symbol(const char* str, size_t& offset, int& bit, size_t num_bits, std::string& value)
     {
         Node* tmp = _root;
         if (tmp->leaf)
         {
-            symbol = tmp->value;
+            value = tmp->value;
             bit++;
             if (bit == 8)
             {
@@ -109,7 +116,7 @@ public:
             }
             if (tmp->leaf)
             {
-                symbol = tmp->value;
+                value = tmp->value;
                 return 0;
             }
             if (!((str[offset] >> (7 - bit)) & 0x01))
@@ -130,7 +137,7 @@ public:
         }
         if (tmp && tmp->leaf)
         {
-            symbol = tmp->value;
+            value = tmp->value;
             return 0;
         }
         return -1;
@@ -147,27 +154,75 @@ private:
 
     void calc_frequency()
     {
-        for (int chr = 0; chr < 255; chr++)
-        {
-            Node* node = new Node();
-            node->leaf = true;
-            node->value = chr;
-            freq[(char)chr] = node;
+        // for (int chr = 0; chr < 255; chr++)
+        // {
+        //     Node* node = new Node();
+        //     node->leaf = true;
+        //     node->value = chr;
+        //     freq[(char)chr] = node;
             
-        }
-        for (int i = 0; i < _str.length(); i++)
+        // }
+        for (int i = 0; i < _str.length(); i+=2)
         {
 // faster :c
-            // if (freq.find(_str[i]) == freq.end())
-            // {
-            //     Node* node = new Node();
-            //     node->leaf = true;
-            //     node->value = _str[i];
-            //     freq[_str[i]] = node;
-            // }
-            (*freq[_str[i]]) ++;
+            std::string tmp;
+            tmp += _str[i];
+            if (i < _str.length() - 1)
+                tmp += _str[i + 1];
+            if (freq.find(tmp) == freq.end())
+            {
+                Node* node = new Node();
+                node->leaf = true;
+                node->value = tmp;
+                freq[tmp] = node;
+            }
+            (*freq[tmp]) ++;
         }
     }
+
+#ifdef MEASURE
+    double entropy_L2_1(const std::vector<double>& probabilities)
+    {
+        double entropy = 0;
+        for (int i = 0; i < probabilities.size(); i++)
+        {
+            entropy -= probabilities[i] * log2(probabilities[i]);
+        }
+
+        return entropy;
+    }
+    double averageLength_L2_2(const std::vector<int>& length, const std::vector<double>& probabilities)
+    {
+        double avlen = 0;
+        for (int i = 0; i < length.size(); i++)
+        {
+            avlen += probabilities[i] * length[i];
+        }
+
+        return avlen;
+    }
+
+    double calc_code_efficiency()
+    {
+        std::vector<double> probabilities;
+        std::vector<int> len;
+        for (auto it = freq.begin(); it != freq.end(); it++)
+        {
+            // with "* 2" approximately for now
+            probabilities.push_back((it->second->probability * 1.0) / _str.length() * 2);
+            len.push_back(_code[it->first].length());
+        }
+        double entropy = entropy_L2_1(probabilities);
+        std::cout << "Entropy = " << entropy << std::endl;
+        double avlen = averageLength_L2_2(len, probabilities);
+        std::cout << "AverageLen = " << avlen << std::endl;
+
+        double code_efficiency = 0;
+        code_efficiency = entropy / avlen * 100;
+
+        return code_efficiency;
+    }
+#endif
 
     void build_bin_tree()
     {
@@ -211,8 +266,8 @@ private:
     }
 
 private:
-    std::unordered_map<char, Node*> freq;
-    std::unordered_map<char, std::string> _code;
+    std::unordered_map<std::string, Node*> freq;
+    std::unordered_map<std::string, std::string> _code;
 
     std::string _str;
     Node* _root;
@@ -254,9 +309,13 @@ public:
     void encode()
     {
         std::string encoded;
-        for (int i = 0; i < _str.length(); i++)
+        for (int i = 0; i < _str.length(); i += 2)
         {
-            std::string codeword = _code->get_code(_str[i]);
+            std::string tmp;
+            tmp += _str[i];
+            if (i < _str.length() - 1)
+                tmp += _str[i + 1];
+            std::string codeword = _code->get_code(tmp);
             if (codeword.empty())
             {
                 set_error(ERROR::WRONG_DATA_TO_DECODE);
@@ -329,7 +388,7 @@ public:
         int bit = 0;
         while (i * 8 + bit < num_bits)
         {
-            char tow = 0;
+            std::string tow;
             int ret = _code->get_symbol(_str.c_str(), i, bit, num_bits, tow);
             if (ret < 0)
             {
@@ -402,7 +461,7 @@ int main()
     std::string encoded = huf.get_encoded();
     // std::cout << bad_to_enc << std::endl;
 
-    std::string filename_compressed = "bigTest_compressed";
+    std::string filename_compressed = "bigTest_extended_hf";
     huf.write_encoded(filename_compressed);
     std::cout << huf.str_error() << std::endl;
 
