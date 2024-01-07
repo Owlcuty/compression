@@ -34,6 +34,6 @@ private:
     std::string _str;
     Node* _root;
 
-    const char shift = 127;
+    const char shift = 254;
 };
 

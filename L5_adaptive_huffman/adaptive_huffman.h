@@ -17,12 +17,11 @@ public:
 
     std::string str_error();
 
-    void encode();
+    void encode(const std::string& filename = "");
 
     void write_encoded(std::string filename = "compressed");
     std::string get_encoded() { return compressed; }
 
-    void read_compressed(const std::string& filename);
     void decode();
     std::string get_decoded() { return decoded; }
 
@@ -45,6 +44,8 @@ private:
         int error = (int)err;
         _set_error(error);
     }
+
+    void write(const std::string& filename, const std::string& src, bool append = false);
 
 private:
     std::string decoded;

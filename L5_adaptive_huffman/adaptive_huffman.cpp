@@ -4,6 +4,7 @@
 
 AHuffman::AHuffman(const std::string& str) : _str(str)
 {
+    _err = ERROR::OK;
 }
 
 AHuffman::~AHuffman()
@@ -31,12 +32,18 @@ AHuffman::str_error()
 
 // TODO: decide how to separate common pieces of code (unbundle)
 void
-AHuffman::encode()
+AHuffman::encode(const std::string& filename)
 {
+    const size_t block_size = 1024 * 16;
     std::string encoded;
     char byte = 0;
     int bit = 0;
     num_bits = 0;
+    bool to_write = false;
+    if (!filename.empty())
+        to_write = true;
+    bool append = false;
+    size_t writed = 0;
     for (size_t i = 0; i < _str.length(); i ++)
     {
         if (bit == 8)
@@ -68,30 +75,31 @@ AHuffman::encode()
         }
         if (is_new)
         {
-            if (bit == 0)
+            for (int b = 0; b < 8; b ++)
             {
-                encoded += _str[i];
-            }
-            else
-            {
-                for (int b = 0; b < 8; b ++)
+                if (((_str[i] >> (7 - b)) & 0x01))
                 {
-                    if (((_str[i] >> (7 - b)) & 0x01))
-                    {
-                        byte += 1 << (7 - bit);
-                    }
-                    bit++;
-                    num_bits++;
-                    if (bit == 8)
-                    {
-                        encoded += byte;
-                        bit = 0;
-                        byte = 0;
-                    }
+                    byte += 1 << (7 - bit);
+                }
+                bit++;
+                num_bits++;
+                if (bit == 8)
+                {
+                    encoded += byte;
+                    bit = 0;
+                    byte = 0;
                 }
             }
         }
         _code.update_tree(_str[i]);
+
+        if (to_write && !encoded.empty() && encoded.length() % block_size == 0 && encoded.length() != writed)
+        {
+            std::string pack(encoded, writed, block_size);
+            write(filename, pack, append);
+            append = true;
+            writed += block_size;
+        }
     }
     if (bit > 0)
     {
@@ -103,6 +111,17 @@ AHuffman::encode()
     compressed = (char*)calloc(encoded.length() + sizeof(size_t), 1);
     memcpy(compressed, (char*)&num_bits, sizeof(size_t));
     memcpy(compressed + sizeof(size_t), encoded.data(), encoded.length());
+
+    if (to_write && encoded.length() < block_size)
+    {
+        write_encoded(filename);
+    }
+    else if (to_write)
+    {
+        std::string pack(encoded, writed, encoded.length() - writed);
+        write(filename, pack, append);
+        writed += encoded.length() - writed;
+    }
 }
 
 void
@@ -116,30 +135,20 @@ AHuffman::write_encoded(std::string filename)
         out.write(compressed, num_bits / 8 + 1 + sizeof(size_t));
 }
 
-
-// // Decoding
-// void
-// AHuffman::read_compressed(const std::string& filename)
-// {
-//     std::ifstream infile(filename);
-//     if (!infile.is_open()){
-//         set_error(ERROR::CANT_OPEN_READ_FILE);
-//         return;
-//     }
-//     infile.seekg(0, infile.end);
-//     ssize_t length = infile.tellg();
-//     infile.seekg(0, infile.beg);
-//     if (length == -1)
-//     {
-//         set_error(ERROR::FAILED_HANDLE_FILE);
-//         return;
-//     }
-
-//     infile.read((char*)&num_bits, sizeof(size_t));
-    
-//     _str.assign((std::istreambuf_iterator<char>(infile)),
-//                 std::istreambuf_iterator<char>());
-// }
+void
+AHuffman::write(const std::string& filename, const std::string& src, bool append)
+{
+    std::ofstream out;
+    if (append)
+    {
+        out.open(filename, std::ios_base::app);
+    }
+    else
+    {
+        out.open(filename);
+    }
+    out << src;
+}
 
 void
 AHuffman::decode()
