@@ -5,7 +5,7 @@
 #include <set>
 #include <vector>
 
-// #define VERBOSE
+#define VERBOSE
 
 struct Node;
 
@@ -21,6 +21,8 @@ public:
     const std::string get_shift_code();
     void update_tree(const char symbol);
 
+    const std::string get_checker() { return check_decoder; }
+
 private:
     void init_tree();
     void build_bin_tree();
@@ -34,6 +36,9 @@ private:
     std::string _str;
     Node* _root;
 
-    const char shift = 127;
+    const char shift = 254;
+
+    int index = 0;
+    std::string check_decoder;
 };
 

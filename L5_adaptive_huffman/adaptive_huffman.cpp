@@ -4,6 +4,7 @@
 
 AHuffman::AHuffman(const std::string& str) : _str(str)
 {
+    _err = ERROR::OK;
 }
 
 AHuffman::~AHuffman()
@@ -28,11 +29,17 @@ AHuffman::str_error()
 }
 
 // Encoding
+#define DEBUG_ENCODE
 
 // TODO: decide how to separate common pieces of code (unbundle)
 void
 AHuffman::encode()
 {
+#ifdef DEBUG_ENCODE
+    int cnt_ = 0;
+    std::string check_str;
+    std::string check_bin;
+#endif
     std::string encoded;
     char byte = 0;
     int bit = 0;
@@ -56,7 +63,20 @@ AHuffman::encode()
         for (int b = 0; b < (int)code.length(); b++)
         {
             if (code[b] == '1')
+            {
                 byte += 1 << (7 - bit);
+#ifdef DEBUG_ENCODE
+                check_str += '1';
+                check_bin += '1';
+#endif
+            }
+#ifdef DEBUG_ENCODE
+            else
+            {
+                check_str += '0';
+                check_bin += '0';
+            }
+#endif
             bit++;
             num_bits++;
             if (bit == 8)
@@ -68,18 +88,25 @@ AHuffman::encode()
         }
         if (is_new)
         {
-            if (bit == 0)
-            {
-                encoded += _str[i];
-            }
-            else
+#ifdef DEBUG_ENCODE
+            check_str += _str[i];
+#endif
             {
                 for (int b = 0; b < 8; b ++)
                 {
                     if (((_str[i] >> (7 - b)) & 0x01))
                     {
                         byte += 1 << (7 - bit);
+#ifdef DEBUG_ENCODE
+                        check_bin += '1';
+#endif
                     }
+#ifdef DEBUG_ENCODE
+                    else
+                    {
+                        check_bin += '0';
+                    }
+#endif
                     bit++;
                     num_bits++;
                     if (bit == 8)
@@ -91,7 +118,18 @@ AHuffman::encode()
                 }
             }
         }
+#ifdef DEBUG_ENCODE
+        // check_str += '_';
+        // check_bin += '_';
+        cnt_ ++;
+        if (170 < cnt_ && cnt_ < 190)
+        {
+            std::cout << "VERB::" << _str[i] << ":: " << std::string(check_bin.begin() + (check_bin.length() - 10), check_bin.end()) << std::endl;
+            std::cout << "FULL::" << _str[i] << "::\n" << check_bin << std::endl;
+        }
+#endif
         _code.update_tree(_str[i]);
+
     }
     if (bit > 0)
     {
@@ -100,6 +138,21 @@ AHuffman::encode()
         bit = 0;
     }
 
+#ifdef DEBUG_ENCODE
+    for (size_t i = 0; i < check_bin.length(); i++)
+    {
+        if (check_bin[i] == '_') cnt_++;
+        if (170 < cnt_ && cnt_ < 190)
+        {
+            std::cout << check_bin[i];
+        }
+    }
+    std::cout << std::endl;
+    // std::cout << "Result: {" << std::string(check_str, 200, 600) << "}\n";
+    // std::cout << "Bin re: {" << std::string(check_bin, 200, 600) << "}\n";
+    std::cout << "Result: {" << check_str << "}\n";
+    std::cout << "Bin re: {" << check_bin << "}\n";
+#endif
     compressed = (char*)calloc(encoded.length() + sizeof(size_t), 1);
     memcpy(compressed, (char*)&num_bits, sizeof(size_t));
     memcpy(compressed + sizeof(size_t), encoded.data(), encoded.length());
@@ -116,34 +169,10 @@ AHuffman::write_encoded(std::string filename)
         out.write(compressed, num_bits / 8 + 1 + sizeof(size_t));
 }
 
-
-// // Decoding
-// void
-// AHuffman::read_compressed(const std::string& filename)
-// {
-//     std::ifstream infile(filename);
-//     if (!infile.is_open()){
-//         set_error(ERROR::CANT_OPEN_READ_FILE);
-//         return;
-//     }
-//     infile.seekg(0, infile.end);
-//     ssize_t length = infile.tellg();
-//     infile.seekg(0, infile.beg);
-//     if (length == -1)
-//     {
-//         set_error(ERROR::FAILED_HANDLE_FILE);
-//         return;
-//     }
-
-//     infile.read((char*)&num_bits, sizeof(size_t));
-    
-//     _str.assign((std::istreambuf_iterator<char>(infile)),
-//                 std::istreambuf_iterator<char>());
-// }
-
 void
 AHuffman::decode()
 {
+    std::cout << "Work strong!\n";
     memcpy((char*)&num_bits, _str.data(), sizeof(size_t));
     size_t offset = sizeof(size_t);
 
@@ -160,6 +189,10 @@ AHuffman::decode()
             return;
         }
         decoded += tow;
+        std::cout << "Before update for " << tow << std::endl;
+        std::cout << "Gessed encoded is:\n" << _code.get_checker() << std::endl;
         _code.update_tree(tow);
     }
+    std::cout << "Guess encoded was::\n";
+    std::cout << _code.get_checker() << std::endl;
 }

@@ -98,10 +98,11 @@ Prefix_Code::update_tree(const char symbol)
 
     build_bin_tree();
 #ifdef VERBOSE
-    std::cout << "Update tree after " << (int)symbol << std::endl;
+    std::cout << index << ":: Update tree after " << (int)symbol << std::endl;
     std::cout << "Build code:\n";
 #endif
     build_code(_root, "");
+    index ++;
 }
 
 
@@ -121,6 +122,8 @@ Prefix_Code::get_shift_code()
 int
 Prefix_Code::get_symbol(const char* str, size_t& offset, int& bit, const size_t num_bits, char& value)
 {
+    std::cout << index << "::\n";
+    std::string got_string;
     Node* tmp = _root;
     if (tmp->leaf)
     {
@@ -133,12 +136,21 @@ Prefix_Code::get_symbol(const char* str, size_t& offset, int& bit, const size_t 
         }
         if (tmp->value == shift)
         {
+            got_string += " _Shift::" + get_shift_code() + "_ ";
+            check_decoder += get_shift_code();
             char byte = 0;
             for (int b = 0; b < 8; b++)
             {
                 if ((str[offset] >> (7 - bit)) & 0x01)
                 {
                     byte += 1 << (7 - b);
+                    got_string += '1';
+                    check_decoder += '1';
+                }
+                else
+                {
+                    got_string += '0';
+                    check_decoder += '0';
                 }
                 bit++;
                 if (bit == 8)
@@ -149,8 +161,11 @@ Prefix_Code::get_symbol(const char* str, size_t& offset, int& bit, const size_t 
             }
             value = byte;
         }
+        std::cout << "For " << value << " got string {" << got_string << "}\n";
         return 0;
     }
+
+    std::cout << "Before while on " << offset << "byte " << bit << "bit = " << offset * 8 + bit << "bit\n";
     while (offset * 8 + bit < num_bits && tmp)
     {
         if (bit == 8)
@@ -162,12 +177,21 @@ Prefix_Code::get_symbol(const char* str, size_t& offset, int& bit, const size_t 
         {
             if (tmp->value == shift)
             {
+                got_string += " _shift::" + get_shift_code() + "_ ";
+                // check_decoder += get_shift_code();
                 char byte = 0;
                 for (int b = 0; b < 8; b++)
                 {
                     if ((str[offset] >> (7 - bit)) & 0x01)
                     {
                         byte += 1 << (7 - b);
+                        got_string += '1';
+                        check_decoder += '1';
+                    }
+                    else
+                    {
+                        got_string += '0';
+                        check_decoder += '0';
                     }
                     bit++;
                     if (bit == 8)
@@ -180,15 +204,29 @@ Prefix_Code::get_symbol(const char* str, size_t& offset, int& bit, const size_t 
             }
             else
                 value = tmp->value;
+        std::cout << "fOr " << value << " got string {" << got_string << "}\n";
+        std::cout << "Currently on " << offset << "byte " << bit << "bit = " << offset * 8 + bit << "bit\n";
             return 0;
         }
         if (!((str[offset] >> (7 - bit)) & 0x01))
         {
+if (offset * 8 + bit > 600 && offset * 8 + bit < 650)
+{
+    std::cout << (int)str[offset] << ":: " << offset << "byte " << bit << "bit = " << offset * 8 + bit << "bit: 0\n";
+}
+            got_string += '0';
+            check_decoder += '0';
             tmp = tmp->left;
             bit++;
         }
         else if ((str[offset] >> (7 - bit)) & 0x01)
         {
+if (offset * 8 + bit > 600 && offset * 8 + bit < 650)
+{
+    std::cout << (int)str[offset] << ":: " << offset << "byte " << bit << "bit = " << offset * 8 + bit << "bit: 1\n";
+}
+            got_string += '1';
+            check_decoder += '1';
             tmp = tmp->right;
             bit++;
         }
@@ -200,25 +238,35 @@ Prefix_Code::get_symbol(const char* str, size_t& offset, int& bit, const size_t 
     if (tmp && tmp->leaf)
     {
         if (tmp->value == shift)
+        {
+            got_string += " _shifT::" + get_shift_code() + "_ ";
+            // check_decoder += get_shift_code();
+            char byte = 0;
+            for (int b = 0; b < 8; b++)
             {
-                char byte = 0;
-                for (int b = 0; b < 8; b++)
+                if ((str[offset] >> (7 - bit)) & 0x01)
                 {
-                    if ((str[offset] >> (7 - bit)) & 0x01)
-                    {
-                        byte += 1 << (7 - b);
-                    }
-                    bit++;
-                    if (bit == 8)
-                    {
-                        offset++;
-                        bit = 0;
-                    }
+                    byte += 1 << (7 - b);
+                    got_string += '1';
+                    check_decoder += '1';
                 }
-                value = byte;
+                else
+                {
+                    got_string += '0';
+                    check_decoder += '0';
+                }
+                bit++;
+                if (bit == 8)
+                {
+                    offset++;
+                    bit = 0;
+                }
             }
-            else
-                value = tmp->value;
+            value = byte;
+        }
+        else
+            value = tmp->value;
+        std::cout << "foR " << value << " got string {" << got_string << "}\n";
         return 0;
     }
     return -1;
