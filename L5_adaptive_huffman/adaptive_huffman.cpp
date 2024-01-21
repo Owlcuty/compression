@@ -148,6 +148,8 @@ AHuffman::write(const std::string& filename, const std::string& src, bool append
         out.open(filename);
     }
     out << src;
+
+    out.close();
 }
 
 void
